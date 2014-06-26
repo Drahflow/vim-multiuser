@@ -88,10 +88,15 @@ rl_disconnect_remote(buf)
     buf->b_ml.ml_has_remote = 0;
 }
 
+/*
+ * if sync == FALSE a non-syncing append will be sent
+ * to be combined with a later delete
+ */
     int
-rl_append_remote(buf, lnum)
+rl_append_remote(buf, lnum, sync)
     buf_T *buf;
     int   lnum;
+    int   sync;
 {
     char data[28];
     int  ret;
@@ -101,7 +106,7 @@ rl_append_remote(buf, lnum)
     char_u *line = ml_get_buf(buf, lnum + 1, FALSE);
 
     rl_save_uint64(data     , 28 + STRLEN(line));
-    rl_save_uint32(data +  8, RL_CMD_APPEND);
+    rl_save_uint32(data +  8, sync? RL_CMD_APPEND: RL_CMD_APPEND_NOSYNC);
     rl_save_uint64(data + 12, lnum);
     rl_save_uint64(data + 20, STRLEN(line));
 
@@ -219,6 +224,7 @@ rl_receive(buf)
 
         switch(cmd)
         {
+            case RL_CMD_APPEND_NOSYNC:
             case RL_CMD_APPEND:
                 {
                     int lnum = rl_load_uint64(pkg + 12);

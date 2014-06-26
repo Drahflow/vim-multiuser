@@ -289,6 +289,7 @@ multiuser_after_read(con)
                     rl_write_all(cons[con].mc_socket, data, 20);
                 }
                 break;
+            case RL_CMD_APPEND_NOSYNC:
             case RL_CMD_APPEND:
                 {
                     int lnum = rl_load_uint64(pkg + 12);
@@ -347,7 +348,8 @@ multiuser_after_read(con)
                     for(i = 0; i < con_count; ++i)
                         rl_write_all(cons[i].mc_socket, pkg, packet_len);
 
-                    multiuser_release_version();
+                    if(cmd != RL_CMD_APPEND_NOSYNC)
+                        multiuser_release_version();
                 }
                 break;
             case RL_CMD_DELETE:

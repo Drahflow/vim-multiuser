@@ -3,6 +3,7 @@
 
 #define RL_CMD_REQ_FULL_TRANS	1
 #define RL_CMD_APPEND		2
+#define RL_CMD_APPEND_NOSYNC	3
 #define RL_CMD_DELETE		4
 #define RL_CMD_ACCEPTED		5
 #define RL_CMD_MASTER_COMPLETE	6

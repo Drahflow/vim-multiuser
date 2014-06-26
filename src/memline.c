@@ -2538,7 +2538,7 @@ ml_append(lnum, line, len, newfile)
 
     // FIXME: think about FAIL-case
     if(curbuf->b_ml.ml_has_remote)
-        rl_append_remote(curbuf, lnum);
+        rl_append_remote(curbuf, lnum, TRUE);
 
     return ret;
 }
@@ -2567,7 +2567,7 @@ ml_append_buf(buf, lnum, line, len, newfile)
 
     // FIXME: think about FAIL-case
     if(buf->b_ml.ml_has_remote)
-        rl_append_remote(curbuf, lnum);
+        rl_append_remote(curbuf, lnum, TRUE);
 
     return ret;
 }
@@ -3114,7 +3114,7 @@ ml_replace(lnum, line, copy)
 
     if(curbuf->b_ml.ml_has_remote)
     {
-        rl_append_remote(curbuf, lnum - 1);
+        rl_append_remote(curbuf, lnum - 1, FALSE);
         rl_delete_remote(curbuf, lnum + 1);
     }
 
@@ -3522,7 +3522,7 @@ ml_flush_line(buf)
 
             if(buf->b_ml.ml_has_remote)
             {
-                rl_append_remote(buf, lnum - 1);
+                rl_append_remote(buf, lnum - 1, FALSE);
                 rl_delete_remote(buf, lnum + 1);
             }
 	}
