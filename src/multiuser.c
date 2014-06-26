@@ -70,6 +70,32 @@ multiuser_master_lnum(lmap, lnum)
     return -2;
 }
 
+    static int
+multiuser_realloc_cons(n)
+    int n;
+{
+    int i;
+    int max = con_count < n? con_count: n;
+
+    con_T *new_cons = malloc(sizeof(con_T) * n);
+    if(!new_cons)
+        return FAIL;
+
+    memcpy(new_cons, cons, sizeof(con_T) * con_count);
+    for(i = 0; i < max; ++i)
+    {
+        new_cons[i].mc_in_buf_fill =
+            new_cons[i].mc_in_buf +
+            (cons[i].mc_in_buf_fill - cons[i].mc_in_buf);
+    }
+
+    free(cons);
+    cons = new_cons;
+    con_count = n;
+
+    return OK;
+}
+
     void
 multiuser_server()
 {
@@ -162,25 +188,14 @@ multiuser_server()
 
             printf("Connection established.\n");
 
-            ++con_count;
+            multiuser_realloc_cons(con_count + 1); // TODO: handle failure
 
-            con_T *new_cons = malloc(sizeof(con_T) * con_count); // TODO: handle failed alloc
-            memcpy(new_cons, cons, sizeof(con_T) * (con_count - 1));
-            for(i = 0; i < con_count - 1; ++i)
-            {
-                new_cons[i].mc_in_buf_fill =
-                    new_cons[i].mc_in_buf +
-                    (cons[i].mc_in_buf_fill - cons[i].mc_in_buf);
-            }
-            free(cons);
-
-            cons = new_cons;
             cons[con_count - 1].mc_socket = con;
             cons[con_count - 1].mc_in_buf_fill = cons[con_count - 1].mc_in_buf;
             cons[con_count - 1].mc_line_map.line_count = 0;
             cons[con_count - 1].mc_line_map.map = malloc(sizeof(int) * 1);
             cons[con_count - 1].mc_line_map.map[0] = 0;
-            // FIXME: actually only fully initialize after first pull
+            cons[con_count - 1].mc_version = -1;
         }
 
         for(i = 0; i < con_count; ++i)
@@ -192,18 +207,30 @@ multiuser_server()
             if(l < 0)
             {
                 printf("Connection error: %s\n", strerror(errno));
-                cons[i] = cons[con_count - 1];
+                free(cons[i].mc_line_map.map);
+
+                memcpy(&cons[i], &cons[con_count - 1], sizeof(con_T));
+                cons[i].mc_in_buf_fill =
+                    cons[con_count - 1].mc_in_buf_fill - cons[con_count - 1].mc_in_buf
+                    + cons[i].mc_in_buf;
 
                 --con_count;
-                cons = realloc(cons, sizeof(con_T) * con_count); // TODO: handle failed alloc
+                // memory will be freed upon next new connection
+                break;
             }
             else if(l == 0)
             {
                 printf("Connection lost.\n");
-                cons[i] = cons[con_count - 1];
+                free(cons[i].mc_line_map.map);
+
+                memcpy(&cons[i], &cons[con_count - 1], sizeof(con_T));
+                cons[i].mc_in_buf_fill =
+                    cons[con_count - 1].mc_in_buf_fill - cons[con_count - 1].mc_in_buf
+                    + cons[i].mc_in_buf;
 
                 --con_count;
-                cons = realloc(cons, sizeof(con_T) * con_count); // TODO: handle failed alloc
+                // memory will be freed upon next new connection
+                break;
             }
             else
             {
@@ -300,11 +327,11 @@ multiuser_after_read(con)
                             sizeof(int) * (cons[con].mc_line_map.line_count - lnum - 1));
                     cons[con].mc_line_map.map[lnum + 1] = master_lnum + 1;
 
-                    printf("= line map =\n");
-                    for(i = 0; i < cons[con].mc_line_map.line_count + 1; ++i)
-                    {
-                        printf("[%d] = %d\n", i, cons[con].mc_line_map.map[i]);
-                    }
+                    // printf("= line map =\n");
+                    // for(i = 0; i < cons[con].mc_line_map.line_count + 1; ++i)
+                    // {
+                    //     printf("[%d] = %d\n", i, cons[con].mc_line_map.map[i]);
+                    // }
 
                     // adjust version line maps
                     for(i = 0; i < versions.end_version - versions.start_version; ++i)
@@ -369,11 +396,11 @@ multiuser_after_read(con)
                     cons[con].mc_line_map.map = realloc(cons[con].mc_line_map.map,
                             sizeof(int) * (cons[con].mc_line_map.line_count + 1));
 
-                    printf("= line map =\n");
-                    for(i = 0; i < cons[con].mc_line_map.line_count + 1; ++i)
-                    {
-                        printf("[%d] = %d\n", i, cons[con].mc_line_map.map[i]);
-                    }
+                    // printf("= line map =\n");
+                    // for(i = 0; i < cons[con].mc_line_map.line_count + 1; ++i)
+                    // {
+                    //     printf("[%d] = %d\n", i, cons[con].mc_line_map.map[i]);
+                    // }
 
                     // adjust version line maps
                     for(i = 0; i < versions.end_version - versions.start_version; ++i)
@@ -443,11 +470,11 @@ multiuser_after_read(con)
                     printf("... relative to start_version: %d\n", ver - versions.start_version);
                     line_map_T *map = &versions.maps[ver - versions.start_version];
 
-                    printf("= version %d line map =\n", ver);
-                    for(i = 0; i < map->line_count + 1; ++i)
-                    {
-                        printf("[%d] = %d\n", i, map->map[i]);
-                    }
+                    // printf("= version %d line map =\n", ver);
+                    // for(i = 0; i < map->line_count + 1; ++i)
+                    // {
+                    //     printf("[%d] = %d\n", i, map->map[i]);
+                    // }
 
                     // copy version line map
                     free(cons[con].mc_line_map.map);
@@ -456,13 +483,34 @@ multiuser_after_read(con)
                     cons[con].mc_line_map.map = malloc(sizeof(int) * (map->line_count + 1)); // TODO: handle failure
                     memcpy(cons[con].mc_line_map.map, map->map, sizeof(int) * (map->line_count + 1));
                     
-                    printf("= line map =\n");
-                    for(i = 0; i < cons[con].mc_line_map.line_count + 1; ++i)
-                    {
-                        printf("[%d] = %d\n", i, cons[con].mc_line_map.map[i]);
-                    }
+                    // printf("= line map =\n");
+                    // for(i = 0; i < cons[con].mc_line_map.line_count + 1; ++i)
+                    // {
+                    //     printf("[%d] = %d\n", i, cons[con].mc_line_map.map[i]);
+                    // }
 
-                    // FIXME: kill outdated version maps
+                    cons[con].mc_version = ver;
+
+                    printf("version range: %d - %d-1\n", versions.start_version, versions.end_version);
+
+                    int min_version = versions.end_version;
+                    for(i = 0; i < con_count; ++i)
+                        if(cons[i].mc_version < min_version)
+                            min_version = cons[i].mc_version;
+
+                    int delta = min_version - versions.start_version;
+                    // TODO: handle failure
+                    line_map_T *new_maps = malloc(sizeof(line_map_T) * (versions.end_version - min_version));
+                    memcpy(new_maps, versions.maps + delta, sizeof(line_map_T) * (versions.end_version - min_version));
+                    
+                    for(i = 0; i < delta; ++i)
+                        free(versions.maps[i].map);
+                    free(versions.maps);
+
+                    versions.maps = new_maps;
+                    versions.start_version = min_version;
+
+                    printf("adjusted version range: %d - %d-1\n", versions.start_version, versions.end_version);
                 }
             default: // FIXME: report error and disconnect
                 break;
@@ -494,9 +542,9 @@ multiuser_release_version()
             curmap->map[i] = i;
         curmap->map[0] = 0; // not a real master line, but stuff can be appended after 0
 
-        printf("= version %d line map =\n", versions.end_version - 1);
-        for(i = 0; i < curmap->line_count; ++i)
-            printf("[%d] = %d\n", i, curmap->map[i]);
+        // printf("= version %d line map =\n", versions.end_version - 1);
+        // for(i = 0; i < curmap->line_count; ++i)
+        //     printf("[%d] = %d\n", i, curmap->map[i]);
     }
 
     char_u data[20];
@@ -507,10 +555,10 @@ multiuser_release_version()
     for(i = 0; i < con_count; ++i)
         rl_write_all(cons[i].mc_socket, data, 20);
 
-    printf("=== Version: %d ===\n", versions.end_version - 1);
-    for(i = 0; i < master.line_count; ++i)
-    {
-        fwrite(master.lines[i].data, 1, master.lines[i].len, stdout);
-        printf("\n");
-    }
+    // printf("=== Version: %d ===\n", versions.end_version - 1);
+    // for(i = 0; i < master.line_count; ++i)
+    // {
+    //     fwrite(master.lines[i].data, 1, master.lines[i].len, stdout);
+    //     printf("\n");
+    // }
 }

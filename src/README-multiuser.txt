@@ -58,12 +58,15 @@ C-Vers S-Vers
      ...
   <- Append line
   <- Transfer complete V-123
+  -> Checkpoint C-1
   -> Version accepted V-123
+  <- Checkpoint C-1
   
   -> Replace line
-  -> Slave Transfer complete 
+  -> Checkpoint C-2
   <- Replace line
   <- Master Transfer complete V-124
+  <- Checkpoint C-2
   -> Version accepted V-124
 
   The server version starts at 1, so 0 can be used to signify "no version".
