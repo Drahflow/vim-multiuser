@@ -21,6 +21,10 @@ Network protocol:
     * 8 byte: Line number to append after
     * 8 byte: Data length
     * Data
+    Command 3: Append line without immediate sync (e.g. delete of old version follows)
+    * 8 byte: Line number to append after
+    * 8 byte: Data length
+    * Data
     Command 4: Delete line
     * 8 byte: Line number to delete
     Command 5: Version accepted (incoming linenumbers now relative to version)
