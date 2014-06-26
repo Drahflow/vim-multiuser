@@ -31,14 +31,18 @@ rl_connect_remote(buf, peer)
     char_u *port_str;
     int    port = -1;
 
-    // FIXME: error reporting
     if(ml_has_remote(buf))
+    {
+        EMSG("buffer already connected to a master");
         goto fail;
+    }
 
     for(port_str = peer; *port_str && *port_str != ':'; ++port_str);
-    // FIXME: error reporting
     if(*port_str != ':')
+    {
+        EMSG("cannot parse peer address, needs <host>:<port>");
         goto fail;
+    }
 
     host_len = port_str - peer;
     host_str = malloc(host_len + 1);
@@ -47,9 +51,11 @@ rl_connect_remote(buf, peer)
     ++port_str;
 
     port = atoi(port_str);
-    // FIXME: error reporting
     if(port == -1)
+    {
+        EMSG("cannot parse peer address, needs <host>:<port>");
         goto fail_host;
+    }
 
     buf->b_ml.ml_remote.ml_checkpoint_cur = 0;
     buf->b_ml.ml_remote.ml_checkpoint_sent = -1;
@@ -73,9 +79,11 @@ rl_connect_remote(buf, peer)
     {
         struct hostent *host_info;
 
-        // FIXME: error reporting
 	if ((host_info = gethostbyname(host_str)) == NULL)
+        {
+            EMSG("cannot resolve host");
             goto fail_host;
+        }
 	memcpy((char *)&addr.sin_addr, host_info->h_addr, host_info->h_length);
     }
 
@@ -235,9 +243,17 @@ rl_receive(buf)
               IN_BUF_SIZE - (rm->in_buf_fill - rm->in_buf));
     // fprintf(stderr, "Read: %d\n", r);
     if(r < 0)
-        return; // FIXME: report error and disconnect
+    {
+        EMSG2("read from remote master failed, disconnecting: %s", strerror(errno));
+        rl_disconnect_remote(buf);
+        return;
+    }
     if(r == 0)
-        return; // FIXME: report EOF and disconnect
+    {
+        EMSG("EOF from remote master, disconnecting");
+        rl_disconnect_remote(buf);
+        return;
+    }
 
     rm->in_buf_fill += r;
 
@@ -256,6 +272,12 @@ rl_receive(buf)
 
         switch(cmd)
         {
+            case RL_CMD_CLEAR:
+                {
+                    while(rm->ml_incoming.line_count)
+                        rl_delete(&rm->ml_incoming, 1);
+                }
+                break;
             case RL_CMD_APPEND_NOSYNC:
             case RL_CMD_APPEND:
                 {
@@ -293,7 +315,10 @@ rl_receive(buf)
                         ml_update_to_remote_version(buf, lnum);
                 }
                 break;
-            default: // FIXME: report error and disconnect
+            default:
+                {
+                    EMSG("Unknown / invalid message received from master");
+                }
                 break;
         }
 

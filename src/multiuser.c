@@ -303,7 +303,7 @@ multiuser_after_read(con)
 
                     if(master_lnum == -2)
                     {
-                        // FIXME: report error and disconnect
+                        fprintf(stderr, "Invalid line number received\n");
                         break;
                     }
 
@@ -363,13 +363,13 @@ multiuser_after_read(con)
 
                     if(master_lnum == -2)
                     {
-                        // FIXME: report error and disconnect
+                        fprintf(stderr, "Invalid line number received\n");
                         break;
                     }
 
                     if(master_lnum == 0)
                     {
-                        // FIXME: report error
+                        fprintf(stderr, "Invalid (zero) line number received\n");
                         break;
                     }
 
@@ -438,19 +438,19 @@ multiuser_after_read(con)
 
                         if(lnum == -2)
                         {
-                            // FIXME: report error and disconnect
+                            fprintf(stderr, "Invalid line number received (in checkpoint)\n");
                             lnum = -1;
                         }
 
                         if(lnum == 0)
                         {
-                            // FIXME: report error
+                            fprintf(stderr, "Invalid (zero) line number received (in checkpoint)\n");
                             lnum = -1;
                         }
 
                         if(lnum < 0)
                         {
-                            // FIXME: report error
+                            fprintf(stderr, "Invalid (negative) line number received (in checkpoint)\n");
                             lnum = -1;
                         }
                     }
@@ -466,9 +466,11 @@ multiuser_after_read(con)
                     int ver = rl_load_uint64(pkg + 12);
                     printf("... accepted version %d\n", ver);
 
-                    // FIXME: report error and kill connection
                     if(ver < versions.start_version || ver >= versions.end_version)
+                    {
+                        fprintf(stderr, "Accepted version outside master range\n");
                         break;
+                    }
 
                     line_map_T *map = &versions.maps[ver - versions.start_version];
 
@@ -514,7 +516,11 @@ multiuser_after_read(con)
 
                     printf("adjusted version range: %d - %d\n", versions.start_version, versions.end_version - 1);
                 }
-            default: // FIXME: report error and disconnect
+                break;
+            default:
+                {
+                    fprintf(stderr, "Unknown / invalid command received\n");
+                }
                 break;
         }
 
