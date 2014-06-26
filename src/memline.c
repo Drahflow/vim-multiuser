@@ -5471,6 +5471,7 @@ ml_update_to_remote_version(buf, lnum)
     buf->b_ml.ml_has_remote = 0;
 
     // FIXME: update only changes (based on tracked linenumbers)
+    // FIXME: adjust undo positions
     // FIXME: adjust marks (mark_adjust)
     // FIXME: adjust folds (foldMarkAdjust)
     // FIXME: adjust cursors in other windows
