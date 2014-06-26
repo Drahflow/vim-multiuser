@@ -1,0 +1,13 @@
+#ifndef MULTIUSER_H
+#define MULTIUSER_H
+
+#define RL_CMD_REQ_FULL_TRANS	1
+#define RL_CMD_APPEND		2
+#define RL_CMD_DELETE		4
+#define RL_CMD_ACCEPTED		5
+#define RL_CMD_MASTER_COMPLETE	6
+#define RL_CMD_CLEAR		8
+#define RL_CMD_CHECKPOINT       9
+#define RL_CMD_CHECKPOINT_REACH	10
+
+#endif
