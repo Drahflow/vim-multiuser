@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/ip.h>
+#include <netdb.h>
 
 #define IN_BUF_SIZE 1000000
 
@@ -25,9 +26,30 @@ rl_connect_remote(buf, peer)
     buf_T  *buf;
     char_u *peer;
 {
+    char_u *host_str;
+    int    host_len;
+    char_u *port_str;
+    int    port = -1;
+
     // FIXME: error reporting
     if(ml_has_remote(buf))
         goto fail;
+
+    for(port_str = peer; *port_str && *port_str != ':'; ++port_str);
+    // FIXME: error reporting
+    if(*port_str != ':')
+        goto fail;
+
+    host_len = port_str - peer;
+    host_str = malloc(host_len + 1);
+    memcpy(host_str, peer, host_len);
+    host_str[host_len] = '\0';
+    ++port_str;
+
+    port = atoi(port_str);
+    // FIXME: error reporting
+    if(port == -1)
+        goto fail_host;
 
     buf->b_ml.ml_remote.ml_checkpoint_cur = 0;
     buf->b_ml.ml_remote.ml_checkpoint_sent = -1;
@@ -37,7 +59,7 @@ rl_connect_remote(buf, peer)
 
     char *in_buf = buf->b_ml.ml_remote.in_buf = malloc(IN_BUF_SIZE);
     if(!in_buf)
-        goto fail;
+        goto fail_host;
 
     buf->b_ml.ml_remote.in_buf_fill = buf->b_ml.ml_remote.in_buf;
     
@@ -47,8 +69,15 @@ rl_connect_remote(buf, peer)
 
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(9999);
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = htons(port);
+    {
+        struct hostent *host_info;
+
+        // FIXME: error reporting
+	if ((host_info = gethostbyname(host_str)) == NULL)
+            goto fail_host;
+	memcpy((char *)&addr.sin_addr, host_info->h_addr, host_info->h_length);
+    }
 
     int r = connect(s, (struct sockaddr *)&addr, sizeof(addr));
     if(r < 0)
@@ -69,6 +98,9 @@ fail_socket:
 
 fail_buf:
     free(in_buf);
+
+fail_host:
+    free(host_str);
 
 fail:
     return FAIL;
