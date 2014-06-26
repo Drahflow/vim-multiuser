@@ -5470,7 +5470,10 @@ ml_update_to_remote_version(buf, lnum)
     curbuf = buf;
     buf->b_ml.ml_has_remote = 0;
 
-    // FIXME: track line numbers and update only changes
+    // FIXME: update only changes (based on tracked linenumbers)
+    // FIXME: adjust marks (mark_adjust)
+    // FIXME: adjust folds (foldMarkAdjust)
+    // FIXME: adjust cursors in other windows
     while (!(ml_flags(buf) & ML_EMPTY))
 	ml_delete((linenr_T)1, FALSE);
 
