@@ -102,6 +102,7 @@ multiuser_server()
     int i;
 
     rl_init(&master);
+    rl_append(&master, 0, "", 0);
 
     versions.start_version = 1;
     versions.end_version = 2;
@@ -111,14 +112,15 @@ multiuser_server()
         fprintf(stderr, "Cannot allocate version map buffers.\n");
         exit(1);
     }
-    versions.maps[0].line_count = 0;
-    versions.maps[0].map = malloc(sizeof(int));
+    versions.maps[0].line_count = 1;
+    versions.maps[0].map = malloc(sizeof(int) * 2);
     if(!versions.maps[0].map)
     {
         fprintf(stderr, "Cannot allocate version map buffers.\n");
         exit(1);
     }
     versions.maps[0].map[0] = 0;
+    versions.maps[0].map[1] = 1;
 
     int main_socket = socket(AF_INET, SOCK_STREAM, 0);
     if(main_socket < 0)
@@ -348,8 +350,7 @@ multiuser_after_read(con)
                     for(i = 0; i < con_count; ++i)
                         rl_write_all(cons[i].mc_socket, pkg, packet_len);
 
-                    if(cmd != RL_CMD_APPEND_NOSYNC)
-                        multiuser_release_version();
+                    multiuser_release_version(cmd != RL_CMD_APPEND_NOSYNC);
                 }
                 break;
             case RL_CMD_DELETE:
@@ -422,7 +423,7 @@ multiuser_after_read(con)
                     for(i = 0; i < con_count; ++i)
                         rl_write_all(cons[i].mc_socket, pkg, packet_len);
 
-                    multiuser_release_version();
+                    multiuser_release_version(TRUE);
                 }
                 break;
             case RL_CMD_CHECKPOINT:
@@ -469,7 +470,6 @@ multiuser_after_read(con)
                     if(ver < versions.start_version || ver >= versions.end_version)
                         break;
 
-                    printf("... relative to start_version: %d\n", ver - versions.start_version);
                     line_map_T *map = &versions.maps[ver - versions.start_version];
 
                     // printf("= version %d line map =\n", ver);
@@ -493,7 +493,7 @@ multiuser_after_read(con)
 
                     cons[con].mc_version = ver;
 
-                    printf("version range: %d - %d-1\n", versions.start_version, versions.end_version);
+                    printf("version range: %d - %d\n", versions.start_version, versions.end_version - 1);
 
                     int min_version = versions.end_version;
                     for(i = 0; i < con_count; ++i)
@@ -512,7 +512,7 @@ multiuser_after_read(con)
                     versions.maps = new_maps;
                     versions.start_version = min_version;
 
-                    printf("adjusted version range: %d - %d-1\n", versions.start_version, versions.end_version);
+                    printf("adjusted version range: %d - %d\n", versions.start_version, versions.end_version - 1);
                 }
             default: // FIXME: report error and disconnect
                 break;
@@ -525,7 +525,8 @@ multiuser_after_read(con)
 }
 
     void
-multiuser_release_version()
+multiuser_release_version(send)
+    int send;
 {
     int i;
 
@@ -549,13 +550,15 @@ multiuser_release_version()
         //     printf("[%d] = %d\n", i, curmap->map[i]);
     }
 
-    char_u data[20];
-    rl_save_uint64(data, 20);
-    rl_save_uint32(data + 8, RL_CMD_MASTER_COMPLETE);
-    rl_save_uint64(data + 12, versions.end_version - 1);
+    if(send) {
+        char_u data[20];
+        rl_save_uint64(data, 20);
+        rl_save_uint32(data + 8, RL_CMD_MASTER_COMPLETE);
+        rl_save_uint64(data + 12, versions.end_version - 1);
 
-    for(i = 0; i < con_count; ++i)
-        rl_write_all(cons[i].mc_socket, data, 20);
+        for(i = 0; i < con_count; ++i)
+            rl_write_all(cons[i].mc_socket, data, 20);
+    }
 
     // printf("=== Version: %d ===\n", versions.end_version - 1);
     // for(i = 0; i < master.line_count; ++i)
