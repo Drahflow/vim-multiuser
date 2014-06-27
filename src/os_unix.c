@@ -18,6 +18,8 @@
  * changed beyond recognition.
  */
 
+// FIXME: put multi-user stuff into other machines also
+
 /*
  * Some systems have a prototype for select() that has (int *) instead of
  * (fd_set *), which is wrong. This define removes that prototype. We define
