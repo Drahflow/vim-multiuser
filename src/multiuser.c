@@ -6,6 +6,9 @@
  * Do ":help credits" in Vim to see a list of people who contributed.
  */
 
+// FIXME: also implement an EtherpadLite connector.
+// FIXME: authentication
+
 #include "vim.h"
 #include "multiuser.h"
 
