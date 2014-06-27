@@ -265,7 +265,7 @@ multiuser_after_read(con)
             break;
 
         int cmd = rl_load_uint32(pkg + 8);
-        printf("Received command %d.\n", cmd);
+        printf("Received command %d from client %d.\n", cmd, con);
 
         switch(cmd)
         {
@@ -474,8 +474,11 @@ multiuser_after_read(con)
 
                     int min_version = versions.end_version;
                     for(i = 0; i < con_count; ++i)
+                    {
+                        printf("client %d @ version %d\n", i, cons[i].mc_version);
                         if(cons[i].mc_version < min_version)
                             min_version = cons[i].mc_version;
+                    }
 
                     int delta = min_version - versions.start_version;
                     // TODO: handle failure
