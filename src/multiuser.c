@@ -431,36 +431,8 @@ multiuser_after_read(con)
                 break;
             case RL_CMD_CHECKPOINT:
                 {
-                    int lnum = rl_load_uint64(pkg + 20);
-                    printf("... checkpoint (cursor at line %d)\n", lnum);
-
-                    if(lnum != -1)
-                    {
-                        lnum = multiuser_master_lnum(&cons[con].mc_line_map, lnum);
-                        printf("... aka master line %d\n", lnum);
-
-                        if(lnum == -2)
-                        {
-                            fprintf(stderr, "Invalid line number received (in checkpoint)\n");
-                            lnum = -1;
-                        }
-
-                        if(lnum == 0)
-                        {
-                            fprintf(stderr, "Invalid (zero) line number received (in checkpoint)\n");
-                            lnum = -1;
-                        }
-
-                        if(lnum < 0)
-                        {
-                            fprintf(stderr, "Invalid (negative) line number received (in checkpoint)\n");
-                            lnum = -1;
-                        }
-                    }
-
+                    printf("... checkpoint\n");
                     rl_save_uint32(pkg + 8, RL_CMD_CHECKPOINT_REACH);
-                    rl_save_uint64(pkg + 20, lnum);
-
                     rl_write_all(cons[con].mc_socket, pkg, packet_len);
                 }
                 break;

@@ -602,3 +602,5 @@ html: dist dist/$(COMMENT_HTML)
 farsi: dist dist/$(COMMENT_FARSI)
 	-rm -f dist/farsi$(VERSION).zip
 	zip -9 -rD -z dist/farsi$(VERSION).zip farsi < dist/$(COMMENT_FARSI)
+
+.PHONY: install

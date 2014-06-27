@@ -5459,44 +5459,90 @@ ml_mf_fullname(buf)
  * update the local memline to the current master version
  */
     void
-ml_update_to_remote_version(buf, lnum)
+ml_update_to_remote_version(buf)
     buf_T *buf;
-    int   lnum;
 {
     int i;
     buf_T *old_curbuf = curbuf;
-    int old_lnum = curwin->w_cursor.lnum;
 
     curbuf = buf;
     buf->b_ml.ml_has_remote = 0;
 
-    // FIXME: update only changes (based on tracked linenumbers)
-    // FIXME: adjust undo positions
-    // FIXME: adjust marks (mark_adjust)
-    // FIXME: adjust folds (foldMarkAdjust)
-    // FIXME: adjust cursors in other windows
-    while (!(ml_flags(buf) & ML_EMPTY))
-	ml_delete((linenr_T)1, FALSE);
+    // FIXME: adjust undo changes
 
     remline_T *rl = &buf->b_ml.ml_remote.ml_incoming;
-    for (i = 0; i < rl->line_count; ++i)
-        ml_append(i, rl->lines[i].data, rl->lines[i].len + 1, FALSE);
-    ml_delete(ml_line_count(buf), FALSE);
 
-    if (curwin->w_buffer == curbuf)
     {
-        if(lnum != -1)
+        int l_lnum = 1;
+        int l_new = 1; // l_lnum in the half-modified memline
+        int r_lnum = 0;
+
+        while(r_lnum < rl->line_count)
         {
-            curwin->w_cursor.lnum = lnum;
+            if(rl->lines[r_lnum].local_lnum == l_lnum)
+            {
+                // lines match, just advance local comparison point
+                ++l_lnum;
+                ++l_new;
+                ++r_lnum;
+            }
+            else if(rl->lines[r_lnum].local_lnum == -1)
+            {
+                // remote line has no local equivalent, insert
+                ml_append(l_new - 1, rl->lines[r_lnum].data, rl->lines[r_lnum].len + 1, FALSE);
+                appended_lines_mark(l_new - 1, 1L);
+
+                if (curwin->w_buffer == curbuf)
+                    if(curwin->w_cursor.lnum >= l_new)
+                        ++curwin->w_cursor.lnum;
+
+                ++l_new;
+                ++r_lnum;
+            }
+            else if(rl->lines[r_lnum].local_lnum > l_lnum)
+            {
+                // local line no longer existing, delete
+                ml_delete(l_new, FALSE);
+                deleted_lines_mark(l_new, 1L);
+
+                if (curwin->w_buffer == curbuf)
+                    if(curwin->w_cursor.lnum >= l_new)
+                        --curwin->w_cursor.lnum;
+
+                ++l_lnum;
+            }
+            else
+            {
+                EMSG("Local version incremental sync failed, positions will be broken");
+                while (!(ml_flags(buf) & ML_EMPTY))
+                    ml_delete((linenr_T)1, FALSE);
+
+                for (i = 0; i < rl->line_count; ++i)
+                    ml_append(i, rl->lines[i].data, rl->lines[i].len + 1, FALSE);
+                ml_delete(ml_line_count(buf), FALSE);
+
+                r_lnum = rl->line_count;
+            }
+        }
+
+        if(rl->line_count == 0)
+        {
+            while (!(ml_flags(buf) & ML_EMPTY))
+            {
+                ml_delete((linenr_T)1, FALSE);
+                deleted_lines_mark(1, 1L);
+            }
         }
         else
         {
-            for (i = 0; i < rl->line_count; ++i)
-                if (rl->lines[i].local_lnum == old_lnum)
-                    curwin->w_cursor.lnum = i + 1;
+            while(ml_line_count(buf) >= l_new)
+            {
+                ml_delete((linenr_T)l_new, FALSE);
+                deleted_lines_mark(l_new, 1L);
+            }
         }
     }
-        
+    
     for (i = 0; i < rl->line_count; ++i)
         rl->lines[i].local_lnum = i + 1;
 

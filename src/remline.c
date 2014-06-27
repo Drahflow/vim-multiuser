@@ -139,9 +139,15 @@ rl_append_remote(buf, lnum, sync)
     int   sync;
 {
     char data[28];
+    int  i;
     int  ret;
 
     ++buf->b_ml.ml_remote.ml_checkpoint_cur;
+
+    remline_T *rl = &buf->b_ml.ml_remote.ml_incoming;
+    for(i = 0; i < rl->line_count; ++i)
+        if(rl->lines[i].local_lnum > lnum)
+            ++rl->lines[i].local_lnum;
 
     char_u *line = ml_get_buf(buf, lnum + 1, FALSE);
 
@@ -162,9 +168,19 @@ rl_delete_remote(buf, lnum)
     int   lnum;
 {
     char data[20];
+    int  i;
     int  ret;
 
     ++buf->b_ml.ml_remote.ml_checkpoint_cur;
+
+    remline_T *rl = &buf->b_ml.ml_remote.ml_incoming;
+    for(i = 0; i < rl->line_count; ++i)
+    {
+        if(rl->lines[i].local_lnum == lnum)
+            rl->lines[i].local_lnum = -1;
+        if(rl->lines[i].local_lnum > lnum)
+            --rl->lines[i].local_lnum;
+    }
 
     rl_save_uint64(data     , 20);
     rl_save_uint32(data +  8, RL_CMD_DELETE);
@@ -301,18 +317,17 @@ rl_receive(buf)
                     buf->b_ml.ml_remote.ml_incoming_version = ver;
 
                     if(rm->ml_checkpoint_recv == rm->ml_checkpoint_cur)
-                        ml_update_to_remote_version(buf, -1);
+                        ml_update_to_remote_version(buf);
                 }
                 break;
             case RL_CMD_CHECKPOINT_REACH:
                 {
                     int cp = rl_load_uint64(pkg + 12);
-                    int lnum = rl_load_uint64(pkg + 20);
 
                     rm->ml_checkpoint_recv = cp;
 
                     if(rm->ml_checkpoint_recv == rm->ml_checkpoint_cur)
-                        ml_update_to_remote_version(buf, lnum);
+                        ml_update_to_remote_version(buf);
                 }
                 break;
             default:
@@ -485,11 +500,10 @@ rl_checkpoint(buf)
     buf->b_ml.ml_remote.ml_checkpoint_sent =
         buf->b_ml.ml_remote.ml_checkpoint_cur;
 
-    char_u data[28];
-    rl_save_uint64(data     , 28);
+    char_u data[20];
+    rl_save_uint64(data     , 20);
     rl_save_uint32(data +  8, RL_CMD_CHECKPOINT);
     rl_save_uint64(data + 12, buf->b_ml.ml_remote.ml_checkpoint_sent);
-    rl_save_uint64(data + 20, lnum);
 
-    return rl_write_all(buf->b_ml.ml_remote.ml_socket, data, 28);
+    return rl_write_all(buf->b_ml.ml_remote.ml_socket, data, 20);
 }
