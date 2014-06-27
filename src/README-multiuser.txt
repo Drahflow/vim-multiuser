@@ -34,10 +34,8 @@ Network protocol:
     Command 8: Clear buffer
     Command 9: Checkpoint request
     * 8 byte: Checkpoint ID
-    * 8 byte: Client lnum
     Command 10: Checkpoint reached
     * 8 byte: Checkpoint ID
-    * 8 byte: Master (and new client) lnum
 
 C-Vers S-Vers
 1-----------1
@@ -74,3 +72,14 @@ C-Vers S-Vers
   -> Version accepted V-124
 
   The server version starts at 1, so 0 can be used to signify "no version".
+
+Local sync to master version:
+  Local-User     Local-Master
+                 -1 - 1
+  1               1 - 2
+  2
+  3               3 - 3
+  4               4 - 4
+                 -1 - 5
+                 -1 - 6
+  5               5 - 7
