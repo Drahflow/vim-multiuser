@@ -5469,6 +5469,7 @@ ml_update_to_remote_version(buf)
     buf->b_ml.ml_has_remote = 0;
 
     // FIXME: adjust undo changes
+    // FIXME: adjust visual block if active
 
     remline_T *rl = &buf->b_ml.ml_remote.ml_incoming;
 
