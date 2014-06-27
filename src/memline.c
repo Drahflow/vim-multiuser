@@ -5489,16 +5489,27 @@ ml_update_to_remote_version(buf)
             }
             else if(rl->lines[r_lnum].local_lnum == -1)
             {
-                // remote line has no local equivalent, insert
-                ml_append(l_new - 1, rl->lines[r_lnum].data, rl->lines[r_lnum].len + 1, FALSE);
-                appended_lines_mark(l_new - 1, 1L);
+                // l_new line matches exactly, this is a match (even though we lost the tracked connection)
+                if(ml_line_count(curbuf) >= l_new &&
+                        strcmp(ml_get(l_new), rl->lines[r_lnum].data) == 0)
+                {
+                    ++l_lnum;
+                    ++l_new;
+                    ++r_lnum;
+                }
+                else
+                {
+                    // remote line has no local equivalent, insert
+                    ml_append(l_new - 1, rl->lines[r_lnum].data, rl->lines[r_lnum].len + 1, FALSE);
+                    appended_lines_mark(l_new - 1, 1L);
 
-                if (curwin->w_buffer == curbuf)
-                    if(curwin->w_cursor.lnum >= l_new)
-                        ++curwin->w_cursor.lnum;
+                    if (curwin->w_buffer == curbuf)
+                        if(curwin->w_cursor.lnum >= l_new)
+                            ++curwin->w_cursor.lnum;
 
-                ++l_new;
-                ++r_lnum;
+                    ++l_new;
+                    ++r_lnum;
+                }
             }
             else if(rl->lines[r_lnum].local_lnum > l_lnum)
             {
