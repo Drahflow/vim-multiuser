@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/ip.h>
+#include <signal.h>
 
 #define IN_BUF_SIZE 1000000
 
@@ -100,7 +101,8 @@ multiuser_realloc_cons(n)
 }
 
     void
-multiuser_server()
+multiuser_server(port)
+    int port;
 {
     int i;
 
@@ -142,7 +144,7 @@ multiuser_server()
 
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(9999);
+    addr.sin_port = htons(port);
     addr.sin_addr.s_addr = INADDR_ANY;
 
     int b = bind(main_socket, (struct sockaddr *)&addr, sizeof(addr));
@@ -156,6 +158,13 @@ multiuser_server()
     if(l < 0)
     {
         fprintf(stderr, "Failed to listen(2): %s\n", strerror(errno));
+        exit(1);
+    }
+
+    void (*p)(int) = signal(SIGPIPE, SIG_IGN);
+    if(p == SIG_ERR)
+    {
+        fprintf(stderr, "Cannot ignore SIGPIPE\n");
         exit(1);
     }
 
@@ -182,7 +191,7 @@ multiuser_server()
         if(r < 0)
         {
             fprintf(stderr, "Failed to select(2): %s\n", strerror(errno));
-            exit(1);
+            continue;
         }
 
         printf("Tick.\n");
@@ -213,6 +222,7 @@ multiuser_server()
             {
                 printf("Connection error: %s\n", strerror(errno));
                 free(cons[i].mc_line_map.map);
+                close(cons[i].mc_socket);
 
                 memcpy(&cons[i], &cons[con_count - 1], sizeof(con_T));
                 cons[i].mc_in_buf_fill =
@@ -227,6 +237,7 @@ multiuser_server()
             {
                 printf("Connection lost.\n");
                 free(cons[i].mc_line_map.map);
+                close(cons[i].mc_socket);
 
                 memcpy(&cons[i], &cons[con_count - 1], sizeof(con_T));
                 cons[i].mc_in_buf_fill =
@@ -476,7 +487,7 @@ multiuser_after_read(con)
                     for(i = 0; i < con_count; ++i)
                     {
                         printf("client %d @ version %d\n", i, cons[i].mc_version);
-                        if(cons[i].mc_version < min_version)
+                        if(cons[i].mc_version < min_version && cons[i].mc_version >= versions.start_version)
                             min_version = cons[i].mc_version;
                     }
 

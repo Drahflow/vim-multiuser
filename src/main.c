@@ -1756,7 +1756,18 @@ early_arg_scan(parmp)
 	}
 # endif
 	else if (STRICMP(argv[i], "--multiuser-server") == 0)
-	    multiuser_server();
+        {
+            if(i + 1 >= argc)
+                mainerr_arg_missing((char_u *)argv[i]);
+            int port = -1;
+            port = atoi(argv[i + 1]);
+            if(port == -1)
+            {
+                mch_errmsg("could not parse port for --multiuser-server");
+                mch_exit(2);
+            }
+	    multiuser_server(port);
+        }
 
     }
 #endif
